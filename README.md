@@ -54,4 +54,4 @@ http://localhost/Group4-ClinicConnect/index.php
 - 🔴 Send Reminders (FR-006) - Navauldo 
 - 🔴 Manage Patient Contact Info (FR-004) - [Team Member]
 - 🔴 View Appointment History (FR-007) - [Team Member]
-- 🔴 Export Data (FR-009) - [Team Member]
+- 🔴 Export Data (FR-009) - Adrienne Jobs
