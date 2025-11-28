@@ -25,10 +25,10 @@ include 'includes/config.php';
         <div class="row">
             <div class="col-md-8 mx-auto text-center">
                 <h1>Welcome to ClinicConnect! 🏥</h1>
-                <p class="lead">Your medical appointment system is working!</p>
                 <div class="mt-4">
                     <a href="booking/" class="btn btn-primary btn-lg me-3">Book Appointment</a>
                     <a href="dashboard/" class="btn btn-outline-secondary btn-lg">Staff Dashboard</a>
+
                 </div>
                 
                 <?php

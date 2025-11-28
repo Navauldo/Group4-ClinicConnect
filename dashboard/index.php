@@ -147,6 +147,7 @@ $all_appointments = $stmt_all->fetchAll();
             <a href="schedule.php" class="btn btn-outline-info"> Manage Schedule</a>
             <a href="reminders.php" class="btn btn-outline-warning">📧 Send Reminders</a>
             <a href="closures.php" class="btn btn-outline-danger"> Manage Closures</a>
+            <a href="export.php" class="btn btn-outline-success">📊 Export Data</a>
                         <!-- TEST: Can you see this comment? -->
                         
         </div>
