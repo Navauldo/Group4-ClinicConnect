@@ -4,6 +4,31 @@ ini_set('display_errors', 1);
 include '../includes/config.php';
 
 // Get clinic schedule
+
+// DEBUG: Check current date interpretation
+echo "<!-- DEBUG: Server Date Info -->";
+echo "<!-- ";
+$test_dates = ['next monday', 'next tuesday', 'next wednesday', 'next thursday', 'next friday'];
+foreach ($test_dates as $test) {
+    $date = date('Y-m-d', strtotime($test));
+    $day_num = date('w', strtotime($test));
+    $day_name = date('l', strtotime($test));
+    echo "$test: $date (Day $day_num - $day_name)\n";
+}
+echo "-->";
+
+// DEBUG: Check clinic schedule
+echo "<!-- DEBUG: Clinic Schedule -->";
+echo "<!-- ";
+$stmt = $pdo->query("SELECT * FROM clinic_schedules WHERE clinic_id = 1 ORDER BY day_of_week");
+$debug_schedule = $stmt->fetchAll();
+foreach ($debug_schedule as $day) {
+    $day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    echo "Day {$day['day_of_week']} ({$day_names[$day['day_of_week']]}): Active = " . ($day['is_active'] ? 'Yes' : 'No') . "\n";
+}
+echo "-->";
+
+
 $stmt = $pdo->prepare("SELECT * FROM clinic_schedules WHERE clinic_id = 1 ORDER BY day_of_week");
 $stmt->execute();
 $clinic_schedule = $stmt->fetchAll();
@@ -56,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['book_appointment'])) {
         $day_of_week = date('w', strtotime($appointment_date));
         $clinic_hours = $schedule_map[$day_of_week] ?? null;
         
-        // BLOCK WEEKENDS
+        // BLOCK WEEKENDS - FIXED: Using proper day numbers (Sunday=0, Monday=1, Saturday=6)
         if ($day_of_week == 0 || $day_of_week == 6) {
             $success_message = "<div class='alert alert-danger'><strong>❌ Error:</strong> Clinic is closed on weekends</div>";
         } elseif (!$clinic_hours || !$clinic_hours['is_active']) {
@@ -283,7 +308,7 @@ $submitted_time = $_POST['appointment_time'] ?? '';
                                required 
                                value="<?= $submitted_date ?>"
                                id="appointmentDate"
-                               placeholder="Select a date (Monday-Friday only)"
+                               placeholder="Select a date (Weekdays only - Monday to Friday)"
                                readonly>
                         <div id="dateStatus" class="day-status"></div>
                     </div>
@@ -316,54 +341,70 @@ $submitted_time = $_POST['appointment_time'] ?? '';
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
     <script>
-    // Initialize Flatpickr with weekend disabling
+    // Initialize Flatpickr with weekend disabling - CORRECTED VERSION
     const datePicker = flatpickr("#appointmentDate", {
         minDate: "today",
         dateFormat: "Y-m-d",
         disable: [
             function(date) {
                 // Disable weekends (Sunday = 0, Saturday = 6)
+                // Monday = 1, Tuesday = 2, Wednesday = 3, Thursday = 4, Friday = 5
                 return (date.getDay() === 0 || date.getDay() === 6);
             }
         ],
+        locale: {
+            firstDayOfWeek: 0 // Set Sunday as first day of week (0 = Sunday, 1 = Monday)
+        },
         onChange: function(selectedDates, dateStr, instance) {
             validateSelectedDate();
         }
     });
 
     function validateSelectedDate() {
-        const dateInput = document.getElementById('appointmentDate');
-        const dateStatus = document.getElementById('dateStatus');
-        const submitBtn = document.getElementById('submitBtn');
-        const selectedDate = dateInput.value;
-        
-        if (!selectedDate) {
-            dateStatus.innerHTML = '';
-            submitBtn.disabled = false;
-            updateTimeSlots();
-            return;
-        }
-        
-        const dateObj = new Date(selectedDate);
-        const dayOfWeek = dateObj.getDay();
-        
-        // Should never happen due to Flatpickr disabling, but double-check
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
-            dateStatus.innerHTML = `<div class="day-closed">❌ Clinic closed on weekends. Please select a weekday (Monday-Friday).</div>`;
-            submitBtn.disabled = true;
-            document.getElementById('timeSlotsContainer').innerHTML = `
-                <div class="alert alert-danger">
-                    <small>❌ Weekend appointments are not available. Please select a weekday.</small>
-                </div>
-            `;
-            document.getElementById('selectedTime').value = '';
-            return;
-        }
-        
-        dateStatus.innerHTML = `<div class="day-open">✅ ${getDayName(dayOfWeek)}: 9:00 AM - 4:30 PM</div>`;
+    const dateInput = document.getElementById('appointmentDate');
+    const dateStatus = document.getElementById('dateStatus');
+    const submitBtn = document.getElementById('submitBtn');
+    const selectedDate = dateInput.value;
+    
+    console.log('🔄 Validating date:', selectedDate);
+    
+    if (!selectedDate) {
+        dateStatus.innerHTML = '';
         submitBtn.disabled = false;
         updateTimeSlots();
+        return;
     }
+    
+    // FIX: Use UTC methods to avoid timezone issues
+    const dateObj = new Date(selectedDate + 'T00:00:00Z'); // Force UTC
+    const dayOfWeek = dateObj.getUTCDay(); // Use UTC day
+    const dayName = dateObj.toLocaleDateString('en-US', { 
+        weekday: 'long',
+        timeZone: 'UTC' // Force UTC for consistent day calculation
+    });
+    
+    console.log(`🔍 Selected: ${selectedDate}, UTC Day: ${dayOfWeek}, Name: ${dayName}`);
+    
+    // Should never happen due to Flatpickr disabling, but double-check
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+        console.log(`❌ Blocked: ${dayName} is weekend (Day ${dayOfWeek})`);
+        dateStatus.innerHTML = `<div class="day-closed">❌ Clinic closed on ${dayName}. Please select a weekday (Monday-Friday).</div>`;
+        submitBtn.disabled = true;
+        document.getElementById('timeSlotsContainer').innerHTML = `
+            <div class="alert alert-danger">
+                <small>❌ ${dayName} appointments are not available. Please select a weekday.</small>
+            </div>
+        `;
+        document.getElementById('selectedTime').value = '';
+        return;
+    }
+    
+    console.log(`✅ Allowed: ${dayName} is weekday (Day ${dayOfWeek})`);
+    dateStatus.innerHTML = `<div class="day-open">✅ ${dayName}: 9:00 AM - 4:30 PM</div>`;
+    submitBtn.disabled = false;
+    updateTimeSlots();
+}
+    
 
     function updateTimeSlots() {
         const dateInput = document.getElementById('appointmentDate');
@@ -381,8 +422,9 @@ $submitted_time = $_POST['appointment_time'] ?? '';
             return;
         }
         
-        const dateObj = new Date(selectedDate);
-        const dayOfWeek = dateObj.getDay();
+        // FIX: Use UTC to avoid timezone mismatch
+        const dateObj = new Date(selectedDate + 'T00:00:00Z'); // Force UTC
+        const dayOfWeek = dateObj.getUTCDay(); // Use UTC day
         
         // Block weekends (shouldn't happen due to Flatpickr, but safety check)
         if (dayOfWeek === 0 || dayOfWeek === 6) {
@@ -478,7 +520,7 @@ $submitted_time = $_POST['appointment_time'] ?? '';
         document.getElementById('selectedTime').value = timeValue;
     }
 
-       function formatDisplayTime(hour, minute) {
+    function formatDisplayTime(hour, minute) {
         // Simple manual conversion to 12-hour format
         let displayHour = hour;
         let period = 'AM';
@@ -492,11 +534,6 @@ $submitted_time = $_POST['appointment_time'] ?? '';
         
         const minuteStr = minute.toString().padStart(2, '0');
         return `${displayHour}:${minuteStr} ${period}`;
-    }
-
-    function getDayName(dayOfWeek) {
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        return days[dayOfWeek];
     }
 
     // Initialize on page load

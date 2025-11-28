@@ -229,16 +229,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['reschedule_appointment
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     
     <script>
-    // Initialize Flatpickr with weekend disabling for reschedule page
+    // Initialize Flatpickr with weekend disabling for reschedule page - FIXED VERSION
     flatpickr("#appointmentDate", {
         minDate: "today",
         dateFormat: "Y-m-d",
         disable: [
             function(date) {
                 // Disable weekends (Sunday = 0, Saturday = 6)
+                // Monday = 1, Tuesday = 2, Wednesday = 3, Thursday = 4, Friday = 5
                 return (date.getDay() === 0 || date.getDay() === 6);
             }
-        ]
+        ],
+        locale: {
+            firstDayOfWeek: 1 // Set Monday as first day of week
+        }
     });
     </script>
 </body>
