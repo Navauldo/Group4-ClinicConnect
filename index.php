@@ -33,7 +33,6 @@ include 'includes/config.php';
                 
                 <?php
                 echo "<div class='alert alert-success mt-4'>";
-                echo "<strong>✅ Homepage is working!</strong><br>";
                 echo "PHP Version: " . phpversion() . "<br>";
                 echo "Server Time: " . date('Y-m-d H:i:s');
                 echo "</div>";
