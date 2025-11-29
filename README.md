@@ -48,10 +48,11 @@ http://localhost/Group4-ClinicConnect/index.php
 - ✅ Staff Dashboard (FR-003) - Navauldo
 - ✅ Cancel Appointments (FR-005) Navauldo
 - ✅ Clinic Schedule Management (FR-008) - Navauldo
-
+- ✅ Send Reminders (FR-006) - Navauldo 
+- ✅ Export Data (FR-009) - Adrienne Jobs
 
 ### In Progress
-- 🔴 Send Reminders (FR-006) - Navauldo 
+
 - 🔴 Manage Patient Contact Info (FR-004) - [Team Member]
 - 🔴 View Appointment History (FR-007) - [Team Member]
-- 🔴 Export Data (FR-009) - Adrienne Jobs
+- 🔴 Reschedule Appointments (FR-002) - [Team Member]

@@ -1,7 +1,6 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-
 include '../includes/config.php';
 
 // Get today's AND tomorrow's appointments (so we can test reschedule)
@@ -148,7 +147,7 @@ $all_appointments = $stmt_all->fetchAll();
             <a href="schedule.php" class="btn btn-outline-info"> Manage Schedule</a>
             <a href="reminders.php" class="btn btn-outline-warning">📧 Send Reminders</a>
             <a href="closures.php" class="btn btn-outline-danger"> Manage Closures</a>
-           
+            <a href="export.php" class="btn btn-outline-success">📊 Export Data</a>
                         <!-- TEST: Can you see this comment? -->
                         
         </div>

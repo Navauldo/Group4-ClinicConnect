@@ -4,31 +4,6 @@ ini_set('display_errors', 1);
 include '../includes/config.php';
 
 // Get clinic schedule
-
-// DEBUG: Check current date interpretation
-echo "<!-- DEBUG: Server Date Info -->";
-echo "<!-- ";
-$test_dates = ['next monday', 'next tuesday', 'next wednesday', 'next thursday', 'next friday'];
-foreach ($test_dates as $test) {
-    $date = date('Y-m-d', strtotime($test));
-    $day_num = date('w', strtotime($test));
-    $day_name = date('l', strtotime($test));
-    echo "$test: $date (Day $day_num - $day_name)\n";
-}
-echo "-->";
-
-// DEBUG: Check clinic schedule
-echo "<!-- DEBUG: Clinic Schedule -->";
-echo "<!-- ";
-$stmt = $pdo->query("SELECT * FROM clinic_schedules WHERE clinic_id = 1 ORDER BY day_of_week");
-$debug_schedule = $stmt->fetchAll();
-foreach ($debug_schedule as $day) {
-    $day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    echo "Day {$day['day_of_week']} ({$day_names[$day['day_of_week']]}): Active = " . ($day['is_active'] ? 'Yes' : 'No') . "\n";
-}
-echo "-->";
-
-
 $stmt = $pdo->prepare("SELECT * FROM clinic_schedules WHERE clinic_id = 1 ORDER BY day_of_week");
 $stmt->execute();
 $clinic_schedule = $stmt->fetchAll();
@@ -59,77 +34,106 @@ if (isset($_GET['reschedule'])) {
 }
 
 $success_message = "";
+$form_submitted = false;
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['book_appointment'])) {
-    $patient_name = $_POST['patient_name'];
-    $patient_email = $_POST['patient_email'];
-    $patient_phone = $_POST['patient_phone'];
+    $patient_name = trim($_POST['patient_name']);
+    $patient_email = trim($_POST['patient_email']);
+    $patient_phone = trim($_POST['patient_phone']);
     $appointment_date = $_POST['appointment_date'];
     $appointment_time = $_POST['appointment_time'];
-    $reason = $_POST['reason'];
+    $reason = trim($_POST['reason']);
 
-    // Check if clinic is closed on this date
-    $stmt = $pdo->prepare("SELECT COUNT(*) as is_closed FROM clinic_closures WHERE closure_date = ?");
-    $stmt->execute([$appointment_date]);
-    $closure_check = $stmt->fetch();
-    
-    if ($closure_check['is_closed'] > 0) {
-        $success_message = "<div class='alert alert-danger'><strong>❌ Clinic Closed:</strong> The clinic is closed on $appointment_date. Please choose another date.</div>";
+    // Validation flags
+    $is_valid = true;
+    $validation_errors = [];
+
+    // Validate email format if provided
+    if (!empty($patient_email) && !filter_var($patient_email, FILTER_VALIDATE_EMAIL)) {
+        $is_valid = false;
+        $validation_errors[] = "Please enter a valid email address";
+    }
+
+    // Validate phone number (numbers only, 7-15 digits)
+    $clean_phone = preg_replace('/[^0-9]/', '', $patient_phone);
+    if (strlen($clean_phone) < 7 || strlen($clean_phone) > 15) {
+        $is_valid = false;
+        $validation_errors[] = "Please enter a valid phone number (7-15 digits)";
+    }
+
+    if (!$is_valid) {
+        $success_message = "<div class='alert alert-danger'><strong>❌ Validation Error:</strong><br>" . implode('<br>', $validation_errors) . "</div>";
     } else {
-        // Validate date is weekday and clinic is open
-        $day_of_week = date('w', strtotime($appointment_date));
-        $clinic_hours = $schedule_map[$day_of_week] ?? null;
+        // Check if clinic is closed on this date
+        $stmt = $pdo->prepare("SELECT COUNT(*) as is_closed FROM clinic_closures WHERE closure_date = ?");
+        $stmt->execute([$appointment_date]);
+        $closure_check = $stmt->fetch();
         
-        // BLOCK WEEKENDS - FIXED: Using proper day numbers (Sunday=0, Monday=1, Saturday=6)
-        if ($day_of_week == 0 || $day_of_week == 6) {
-            $success_message = "<div class='alert alert-danger'><strong>❌ Error:</strong> Clinic is closed on weekends</div>";
-        } elseif (!$clinic_hours || !$clinic_hours['is_active']) {
-            $day_name = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][$day_of_week];
-            $success_message = "<div class='alert alert-danger'><strong>❌ Error:</strong> Clinic is closed on $day_name (holiday/special closure)</div>";
+        if ($closure_check['is_closed'] > 0) {
+            $success_message = "<div class='alert alert-danger'><strong>❌ Clinic Closed:</strong> The clinic is closed on $appointment_date. Please choose another date.</div>";
         } else {
-            // Validate time is between 9:00 AM and 4:30 PM
-            $appointment_timestamp = strtotime($appointment_time);
-            $min_time = strtotime('09:00:00');
-            $max_time = strtotime('16:30:00');
+            // Validate date is weekday and clinic is open
+            $day_of_week = date('w', strtotime($appointment_date));
+            $clinic_hours = $schedule_map[$day_of_week] ?? null;
             
-            if ($appointment_timestamp < $min_time || $appointment_timestamp > $max_time) {
-                $success_message = "<div class='alert alert-danger'><strong>❌ Error:</strong> Selected time must be between 9:00 AM and 4:30 PM</div>";
+            // BLOCK WEEKENDS - FIXED: Using proper day numbers (Sunday=0, Monday=1, Saturday=6)
+            if ($day_of_week == 0 || $day_of_week == 6) {
+                $success_message = "<div class='alert alert-danger'><strong>❌ Error:</strong> Clinic is closed on weekends</div>";
+            } elseif (!$clinic_hours || !$clinic_hours['is_active']) {
+                $day_name = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][$day_of_week];
+                $success_message = "<div class='alert alert-danger'><strong>❌ Error:</strong> Clinic is closed on $day_name (holiday/special closure)</div>";
             } else {
-                try {
-                    if ($is_rescheduling && isset($_POST['booking_reference'])) {
-                        // Reschedule existing appointment
-                        $booking_ref = $_POST['booking_reference'];
-                        
-                        $stmt = $pdo->prepare("UPDATE appointments SET appointment_date = ?, appointment_time = ?, reason = ? WHERE booking_reference = ?");
-                        $stmt->execute([$appointment_date, $appointment_time, $reason, $booking_ref]);
-                        
-                        $success_message = "<div class='alert alert-success'><strong>✅ Appointment Rescheduled!</strong><br>Your appointment has been moved to " . 
-                                          date('l, F j, Y', strtotime($appointment_date)) . " at " . date('g:i A', strtotime($appointment_time)) . 
-                                          "<br>Booking reference: <strong>$booking_ref</strong></div>";
-                        
-                    } else {
-                        // New booking
-                        $booking_ref = 'CC' . date('Ymd') . rand(1000, 9999);
-                        
-                        $stmt = $pdo->prepare("INSERT INTO appointments (patient_name, patient_email, patient_phone, appointment_date, appointment_time, reason, booking_reference) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                        $stmt->execute([$patient_name, $patient_email, $patient_phone, $appointment_date, $appointment_time, $reason, $booking_ref]);
-                        
-                        $success_message = "<div class='alert alert-success'><strong>✅ Appointment Booked!</strong><br>Your appointment is scheduled for " . 
-                                          date('l, F j, Y', strtotime($appointment_date)) . " at " . date('g:i A', strtotime($appointment_time)) . 
-                                          "<br>Booking reference: <strong>$booking_ref</strong></div>";
+                // Validate time is between 9:00 AM and 4:30 PM
+                $appointment_timestamp = strtotime($appointment_time);
+                $min_time = strtotime('09:00:00');
+                $max_time = strtotime('16:30:00');
+                
+                if ($appointment_timestamp < $min_time || $appointment_timestamp > $max_time) {
+                    $success_message = "<div class='alert alert-danger'><strong>❌ Error:</strong> Selected time must be between 9:00 AM and 4:30 PM</div>";
+                } else {
+                    try {
+                        if ($is_rescheduling && isset($_POST['booking_reference'])) {
+                            // Reschedule existing appointment
+                            $booking_ref = $_POST['booking_reference'];
+                            
+                            $stmt = $pdo->prepare("UPDATE appointments SET appointment_date = ?, appointment_time = ?, reason = ? WHERE booking_reference = ?");
+                            $stmt->execute([$appointment_date, $appointment_time, $reason, $booking_ref]);
+                            
+                            $success_message = "<div class='alert alert-success'><strong>✅ Appointment Rescheduled!</strong><br>Your appointment has been moved to " . 
+                                              date('l, F j, Y', strtotime($appointment_date)) . " at " . date('g:i A', strtotime($appointment_time)) . 
+                                              "<br>Booking reference: <strong>$booking_ref</strong></div>";
+                            
+                        } else {
+                            // New booking
+                            $booking_ref = 'CC' . date('Ymd') . rand(1000, 9999);
+                            
+                            $stmt = $pdo->prepare("INSERT INTO appointments (patient_name, patient_email, patient_phone, appointment_date, appointment_time, reason, booking_reference) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                            $stmt->execute([$patient_name, $patient_email, $patient_phone, $appointment_date, $appointment_time, $reason, $booking_ref]);
+                            
+                            $success_message = "<div class='alert alert-success'><strong>✅ Appointment Booked!</strong><br>Your appointment is scheduled for " . 
+                                              date('l, F j, Y', strtotime($appointment_date)) . " at " . date('g:i A', strtotime($appointment_time)) . 
+                                              "<br>Booking reference: <strong>$booking_ref</strong></div>";
+                            
+                            // Set flag to clear form (only for new bookings, not rescheduling)
+                            $form_submitted = true;
+                        }
+                    } catch(PDOException $e) {
+                        $success_message = "<div class='alert alert-danger'><strong>❌ Error:</strong> " . $e->getMessage() . "</div>";
                     }
-                } catch(PDOException $e) {
-                    $success_message = "<div class='alert alert-danger'><strong>❌ Error:</strong> " . $e->getMessage() . "</div>";
                 }
             }
         }
     }
 }
 
-// Get submitted values to preserve form data
-$submitted_date = $_POST['appointment_date'] ?? '';
-$submitted_time = $_POST['appointment_time'] ?? '';
+// Get submitted values to preserve form data (only if form wasn't successfully submitted)
+$submitted_name = $form_submitted ? '' : ($_POST['patient_name'] ?? '');
+$submitted_email = $form_submitted ? '' : ($_POST['patient_email'] ?? '');
+$submitted_phone = $form_submitted ? '' : ($_POST['patient_phone'] ?? '');
+$submitted_date = $form_submitted ? '' : ($_POST['appointment_date'] ?? '');
+$submitted_time = $form_submitted ? '' : ($_POST['appointment_time'] ?? '');
+$submitted_reason = $form_submitted ? '' : ($_POST['reason'] ?? '');
 ?>
 
 <!DOCTYPE html>
@@ -251,6 +255,21 @@ $submitted_time = $_POST['appointment_time'] ?? '';
             border-color: #0056b3 !important;
             box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
         }
+
+        /* Validation styles */
+        .is-invalid {
+            border-color: #dc3545 !important;
+        }
+        .invalid-feedback {
+            display: none;
+            width: 100%;
+            margin-top: 0.25rem;
+            font-size: 0.875em;
+            color: #dc3545;
+        }
+        .was-validated .form-control:invalid ~ .invalid-feedback {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -265,7 +284,7 @@ $submitted_time = $_POST['appointment_time'] ?? '';
         
         <?php echo $success_message; ?>
         
-        <form method="POST" class="mt-4" id="bookingForm">
+        <form method="POST" class="mt-4 needs-validation" id="bookingForm" novalidate>
             <?php if ($is_rescheduling && $current_appointment): ?>
             <div class="alert alert-info">
                 <strong>Rescheduling Appointment:</strong> Currently booked for 
@@ -280,22 +299,33 @@ $submitted_time = $_POST['appointment_time'] ?? '';
                     <div class="mb-3">
                         <label class="form-label">Patient Name *</label>
                         <input type="text" name="patient_name" class="form-control" 
-                            value="<?= $is_rescheduling ? htmlspecialchars($current_appointment['patient_name']) : ($_POST['patient_name'] ?? ''); ?>" 
+                            value="<?= $is_rescheduling ? htmlspecialchars($current_appointment['patient_name']) : $submitted_name; ?>" 
                             required <?= $is_rescheduling ? 'readonly' : ''; ?>>
+                        <div class="invalid-feedback">
+                            Please provide patient name.
+                        </div>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Email</label>
                         <input type="email" name="patient_email" class="form-control"
-                            value="<?= $is_rescheduling ? htmlspecialchars($current_appointment['patient_email']) : ($_POST['patient_email'] ?? ''); ?>"
-                            <?= $is_rescheduling ? 'readonly' : ''; ?>>
+                            value="<?= $is_rescheduling ? htmlspecialchars($current_appointment['patient_email']) : $submitted_email; ?>"
+                            <?= $is_rescheduling ? 'readonly' : ''; ?>
+                            pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$">
+                        <div class="invalid-feedback">
+                            Please provide a valid email address.
+                        </div>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Phone *</label>
                         <input type="tel" name="patient_phone" class="form-control"
-                            value="<?= $is_rescheduling ? htmlspecialchars($current_appointment['patient_phone']) : ($_POST['patient_phone'] ?? ''); ?>"
-                            required <?= $is_rescheduling ? 'readonly' : ''; ?>>
+                            value="<?= $is_rescheduling ? htmlspecialchars($current_appointment['patient_phone']) : $submitted_phone; ?>"
+                            required <?= $is_rescheduling ? 'readonly' : ''; ?>
+                            pattern="[0-9+\-\s()]{7,15}">
+                        <div class="invalid-feedback">
+                            Please provide a valid phone number (7-15 digits).
+                        </div>
                     </div>
                 </div>
                 
@@ -310,6 +340,9 @@ $submitted_time = $_POST['appointment_time'] ?? '';
                                id="appointmentDate"
                                placeholder="Select a date (Weekdays only - Monday to Friday)"
                                readonly>
+                        <div class="invalid-feedback">
+                            Please select an appointment date.
+                        </div>
                         <div id="dateStatus" class="day-status"></div>
                     </div>
                     
@@ -321,11 +354,14 @@ $submitted_time = $_POST['appointment_time'] ?? '';
                             </div>
                         </div>
                         <input type="hidden" name="appointment_time" id="selectedTime" value="<?= $submitted_time ?>" required>
+                        <div class="invalid-feedback">
+                            Please select an appointment time.
+                        </div>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Reason for Visit</label>
-                        <textarea name="reason" class="form-control" rows="3" placeholder="Briefly describe why you're visiting..."><?= $is_rescheduling ? htmlspecialchars($current_appointment['reason']) : ($_POST['reason'] ?? ''); ?></textarea>
+                        <textarea name="reason" class="form-control" rows="3" placeholder="Briefly describe why you're visiting..."><?= $is_rescheduling ? htmlspecialchars($current_appointment['reason']) : $submitted_reason; ?></textarea>
                     </div>
                 </div>
             </div>
@@ -341,19 +377,18 @@ $submitted_time = $_POST['appointment_time'] ?? '';
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
     <script>
-    // Initialize Flatpickr with weekend disabling - CORRECTED VERSION
+    // Initialize Flatpickr with weekend disabling
     const datePicker = flatpickr("#appointmentDate", {
         minDate: "today",
         dateFormat: "Y-m-d",
         disable: [
             function(date) {
                 // Disable weekends (Sunday = 0, Saturday = 6)
-                // Monday = 1, Tuesday = 2, Wednesday = 3, Thursday = 4, Friday = 5
                 return (date.getDay() === 0 || date.getDay() === 6);
             }
         ],
         locale: {
-            firstDayOfWeek: 0 // Set Sunday as first day of week (0 = Sunday, 1 = Monday)
+            firstDayOfWeek: 0
         },
         onChange: function(selectedDates, dateStr, instance) {
             validateSelectedDate();
@@ -361,50 +396,43 @@ $submitted_time = $_POST['appointment_time'] ?? '';
     });
 
     function validateSelectedDate() {
-    const dateInput = document.getElementById('appointmentDate');
-    const dateStatus = document.getElementById('dateStatus');
-    const submitBtn = document.getElementById('submitBtn');
-    const selectedDate = dateInput.value;
-    
-    console.log('🔄 Validating date:', selectedDate);
-    
-    if (!selectedDate) {
-        dateStatus.innerHTML = '';
+        const dateInput = document.getElementById('appointmentDate');
+        const dateStatus = document.getElementById('dateStatus');
+        const submitBtn = document.getElementById('submitBtn');
+        const selectedDate = dateInput.value;
+        
+        if (!selectedDate) {
+            dateStatus.innerHTML = '';
+            submitBtn.disabled = false;
+            updateTimeSlots();
+            return;
+        }
+        
+        // Use UTC methods to avoid timezone issues
+        const dateObj = new Date(selectedDate + 'T00:00:00Z');
+        const dayOfWeek = dateObj.getUTCDay();
+        const dayName = dateObj.toLocaleDateString('en-US', { 
+            weekday: 'long',
+            timeZone: 'UTC'
+        });
+        
+        // Block weekends
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            dateStatus.innerHTML = `<div class="day-closed">❌ Clinic closed on ${dayName}. Please select a weekday (Monday-Friday).</div>`;
+            submitBtn.disabled = true;
+            document.getElementById('timeSlotsContainer').innerHTML = `
+                <div class="alert alert-danger">
+                    <small>❌ ${dayName} appointments are not available. Please select a weekday.</small>
+                </div>
+            `;
+            document.getElementById('selectedTime').value = '';
+            return;
+        }
+        
+        dateStatus.innerHTML = `<div class="day-open">✅ ${dayName}: 9:00 AM - 4:30 PM</div>`;
         submitBtn.disabled = false;
         updateTimeSlots();
-        return;
     }
-    
-    // FIX: Use UTC methods to avoid timezone issues
-    const dateObj = new Date(selectedDate + 'T00:00:00Z'); // Force UTC
-    const dayOfWeek = dateObj.getUTCDay(); // Use UTC day
-    const dayName = dateObj.toLocaleDateString('en-US', { 
-        weekday: 'long',
-        timeZone: 'UTC' // Force UTC for consistent day calculation
-    });
-    
-    console.log(`🔍 Selected: ${selectedDate}, UTC Day: ${dayOfWeek}, Name: ${dayName}`);
-    
-    // Should never happen due to Flatpickr disabling, but double-check
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-        console.log(`❌ Blocked: ${dayName} is weekend (Day ${dayOfWeek})`);
-        dateStatus.innerHTML = `<div class="day-closed">❌ Clinic closed on ${dayName}. Please select a weekday (Monday-Friday).</div>`;
-        submitBtn.disabled = true;
-        document.getElementById('timeSlotsContainer').innerHTML = `
-            <div class="alert alert-danger">
-                <small>❌ ${dayName} appointments are not available. Please select a weekday.</small>
-            </div>
-        `;
-        document.getElementById('selectedTime').value = '';
-        return;
-    }
-    
-    console.log(`✅ Allowed: ${dayName} is weekday (Day ${dayOfWeek})`);
-    dateStatus.innerHTML = `<div class="day-open">✅ ${dayName}: 9:00 AM - 4:30 PM</div>`;
-    submitBtn.disabled = false;
-    updateTimeSlots();
-}
-    
 
     function updateTimeSlots() {
         const dateInput = document.getElementById('appointmentDate');
@@ -422,33 +450,16 @@ $submitted_time = $_POST['appointment_time'] ?? '';
             return;
         }
         
-        // FIX: Use UTC to avoid timezone mismatch
-        const dateObj = new Date(selectedDate + 'T00:00:00Z'); // Force UTC
-        const dayOfWeek = dateObj.getUTCDay(); // Use UTC day
-        
-        // Block weekends (shouldn't happen due to Flatpickr, but safety check)
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
-            timeContainer.innerHTML = `
-                <div class="alert alert-danger">
-                    <small>❌ Weekend appointments are not available. Please select a weekday.</small>
-                </div>
-            `;
-            selectedTimeInput.value = '';
-            return;
-        }
-        
-        // Generate time slots from 9:00 AM to 4:30 PM ONLY
+        // Generate time slots from 9:00 AM to 4:30 PM
         const timeSlots = [];
         
         // Morning slots: 9:00 AM to 11:30 AM
         for (let hour = 9; hour <= 11; hour++) {
-            // Add :00 slot (9:00, 10:00, 11:00)
             timeSlots.push({
                 value: `${hour.toString().padStart(2, '0')}:00:00`,
                 display: formatDisplayTime(hour, 0)
             });
             
-            // Add :30 slot (9:30, 10:30, 11:30)
             timeSlots.push({
                 value: `${hour.toString().padStart(2, '0')}:30:00`,
                 display: formatDisplayTime(hour, 30)
@@ -457,13 +468,11 @@ $submitted_time = $_POST['appointment_time'] ?? '';
         
         // Afternoon slots: 12:00 PM to 4:30 PM
         for (let hour = 12; hour <= 16; hour++) {
-            // Add :00 slot (12:00, 1:00, 2:00, 3:00, 4:00)
             timeSlots.push({
                 value: `${hour.toString().padStart(2, '0')}:00:00`,
                 display: formatDisplayTime(hour, 0)
             });
             
-            // Add :30 slot (12:30, 1:30, 2:30, 3:30) - but NOT 4:30 if hour is 16
             if (hour < 16) {
                 timeSlots.push({
                     value: `${hour.toString().padStart(2, '0')}:30:00`,
@@ -521,7 +530,6 @@ $submitted_time = $_POST['appointment_time'] ?? '';
     }
 
     function formatDisplayTime(hour, minute) {
-        // Simple manual conversion to 12-hour format
         let displayHour = hour;
         let period = 'AM';
         
@@ -536,9 +544,26 @@ $submitted_time = $_POST['appointment_time'] ?? '';
         return `${displayHour}:${minuteStr} ${period}`;
     }
 
-    // Initialize on page load
+    // Form validation
     document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('bookingForm');
+        
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            form.classList.add('was-validated');
+        }, false);
+
         validateSelectedDate();
+    });
+
+    // Real-time phone number validation
+    document.querySelector('input[name="patient_phone"]').addEventListener('input', function(e) {
+        // Remove any non-digit characters except +, -, (, ), and spaces
+        this.value = this.value.replace(/[^0-9+\-\s()]/g, '');
     });
 
     // Make functions global for onclick events
