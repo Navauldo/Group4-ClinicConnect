@@ -4,17 +4,28 @@ ini_set('display_errors', 1);
 include __DIR__ . '/../includes/config.php';
 include __DIR__ . '/../includes/api_config.php';
 
+// Add these fallback definitions if constants aren't defined
+if (!defined('CLINIC_NAME')) {
+    define('CLINIC_NAME', 'University Medical Center');
+}
+if (!defined('CLINIC_PHONE')) {
+    define('CLINIC_PHONE', '(876) 555-HELP');
+}
+if (!defined('NOTIFICATION_DELAY_SECONDS')) {
+    define('NOTIFICATION_DELAY_SECONDS', 1);
+}
+
 $success_message = "";
 $error_message = "";
 
-// Get upcoming appointments (next 24-48 hours)
+// Get upcoming appointments (next 1-7 days)
 $stmt = $pdo->prepare("
     SELECT a.*, 
            CONCAT(a.appointment_date, ' ', a.appointment_time) as appointment_datetime
     FROM appointments a 
     WHERE a.status = 'booked' 
     AND CONCAT(a.appointment_date, ' ', a.appointment_time) BETWEEN 
-        DATE_ADD(NOW(), INTERVAL 24 HOUR) AND DATE_ADD(NOW(), INTERVAL 48 HOUR)
+        DATE_ADD(NOW(), INTERVAL 1 DAY) AND DATE_ADD(NOW(), INTERVAL 7 DAY)
     ORDER BY a.appointment_date, a.appointment_time
 ");
 $stmt->execute();
@@ -102,6 +113,11 @@ function sendNotification($appointment, $type) {
     $appointment_time = date('g:i A', strtotime($appointment['appointment_time']));
     $booking_ref = $appointment['booking_reference'] ?? 'N/A';
     
+    // Calculate days until appointment
+    $appointment_datetime = strtotime($appointment['appointment_date'] . ' ' . $appointment['appointment_time']);
+    $current_datetime = time();
+    $days_until = ceil(($appointment_datetime - $current_datetime) / (60 * 60 * 24));
+    
     // Validate contact information
     if ($type == 'email' && empty($patient_email)) {
         return ['success' => false, 'error' => 'No email address provided'];
@@ -116,17 +132,17 @@ function sendNotification($appointment, $type) {
     
     // Create notification details
     if ($type == 'email') {
-        $details = "Email notification queued for: $patient_name ($patient_email) - Appointment: $appointment_date at $appointment_time";
+        $details = "Email notification queued for: $patient_name ($patient_email) - Appointment: $appointment_date at $appointment_time (in $days_until days)";
         
         // Simulate email sending
-        $email_content = generateEmailContent($patient_name, $appointment_date, $appointment_time, $booking_ref);
+        $email_content = generateEmailContent($patient_name, $appointment_date, $appointment_time, $booking_ref, $days_until);
         logNotification("EMAIL_SENT", $patient_email, $patient_name, $email_content);
         
     } else {
-        $details = "SMS notification queued for: $patient_name ($patient_phone) - Appointment: $appointment_date at $appointment_time";
+        $details = "SMS notification queued for: $patient_name ($patient_phone) - Appointment: $appointment_date at $appointment_time (in $days_until days)";
         
         // Simulate SMS sending
-        $sms_content = generateSMSContent($patient_name, $appointment_date, $appointment_time, $booking_ref);
+        $sms_content = generateSMSContent($patient_name, $appointment_date, $appointment_time, $booking_ref, $days_until);
         logNotification("SMS_SENT", $patient_phone, $patient_name, $sms_content);
     }
     
@@ -137,13 +153,15 @@ function sendNotification($appointment, $type) {
 }
 
 // Generate email content
-function generateEmailContent($patient_name, $appointment_date, $appointment_time, $booking_ref) {
+function generateEmailContent($patient_name, $appointment_date, $appointment_time, $booking_ref, $days_until) {
+    $days_text = $days_until == 1 ? "tomorrow" : "in $days_until days";
+    
     return "
     APPOINTMENT REMINDER - " . CLINIC_NAME . "
     
     Hello $patient_name,
     
-    This is a friendly reminder about your upcoming appointment:
+    This is a friendly reminder about your upcoming appointment $days_text:
     
     📅 Date: $appointment_date
     ⏰ Time: $appointment_time  
@@ -158,8 +176,9 @@ function generateEmailContent($patient_name, $appointment_date, $appointment_tim
 }
 
 // Generate SMS content  
-function generateSMSContent($patient_name, $appointment_date, $appointment_time, $booking_ref) {
-    return "Hi $patient_name! Reminder: Your appointment at " . CLINIC_NAME . " is on $appointment_date at $appointment_time. Ref: $booking_ref. Please arrive 15 mins early. Call " . CLINIC_PHONE . " for changes.";
+function generateSMSContent($patient_name, $appointment_date, $appointment_time, $booking_ref, $days_until) {
+    $days_text = $days_until == 1 ? "tomorrow" : "in $days_until days";
+    return "Hi $patient_name! Reminder: Your appointment at " . CLINIC_NAME . " is $days_text ($appointment_date at $appointment_time). Ref: $booking_ref. Please arrive 15 mins early. Call " . CLINIC_PHONE . " for changes.";
 }
 
 // Log notification for tracking
@@ -172,11 +191,17 @@ function logNotification($type, $contact, $patient_name, $content) {
     $log_file = __DIR__ . '/../logs/notifications.log';
     $log_dir = dirname($log_file);
     
+    // Check if log directory exists and is writable, if not, skip logging
     if (!is_dir($log_dir)) {
-        mkdir($log_dir, 0755, true);
+        // Try to create directory, but suppress errors
+        @mkdir($log_dir, 0755, true);
     }
     
-    file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
+    // Only try to write if directory exists and is writable
+    if (is_dir($log_dir) && is_writable($log_dir)) {
+        @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
+    }
+    // If logging fails, just continue without error - logging is non-critical
 }
 ?>
 
@@ -224,6 +249,15 @@ function logNotification($type, $contact, $patient_name, $content) {
             padding: 15px;
             margin-bottom: 20px;
         }
+        .days-badge {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            margin-left: 5px;
+        }
+        .urgent { background-color: #dc3545; color: white; }
+        .soon { background-color: #fd7e14; color: white; }
+        .upcoming { background-color: #20c997; color: white; }
+        .later { background-color: #6c757d; color: white; }
     </style>
 </head>
 <body>
@@ -239,13 +273,13 @@ function logNotification($type, $contact, $patient_name, $content) {
         <div class="row">
             <div class="col-md-8">
                 <h2><i class="fas fa-bell"></i> Send Appointment Notifications</h2>
-                <p class="text-muted">Send notifications to patients with upcoming appointments (next 24-48 hours)</p>
+                <p class="text-muted">Send notifications to patients with upcoming appointments (next 1-7 days)</p>
                 
                 <!-- System Status -->
                 <div class="notification-status">
                     <i class="fas fa-check-circle text-success"></i>
                     <strong>Notification System:</strong> Active and Ready
-                    <small class="text-muted d-block">Patients will receive notifications within an hour after sending</small>
+                    <small class="text-muted d-block">Patients will receive notifications within a hour after sending</small>
                 </div>
                 
                 <?php echo $error_message; ?>
@@ -256,7 +290,7 @@ function logNotification($type, $contact, $patient_name, $content) {
                         <div class="card-header bg-success text-white">
                             <div class="d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">
-                                    <i class="fas fa-calendar-check"></i> Upcoming Appointments
+                                    <i class="fas fa-calendar-check"></i> Upcoming Appointments (Next 7 Days)
                                 </h5>
                                 <div>
                                     <span class="badge bg-light text-dark fs-6">
@@ -277,7 +311,26 @@ function logNotification($type, $contact, $patient_name, $content) {
                                 </div>
                                 
                                 <div class="row">
-                                    <?php foreach ($upcoming_appointments as $appointment): ?>
+                                    <?php foreach ($upcoming_appointments as $appointment): 
+                                        $appointment_datetime = strtotime($appointment['appointment_date'] . ' ' . $appointment['appointment_time']);
+                                        $current_datetime = time();
+                                        $days_until = ceil(($appointment_datetime - $current_datetime) / (60 * 60 * 24));
+                                        
+                                        // Determine badge class based on days until appointment
+                                        if ($days_until <= 1) {
+                                            $badge_class = 'urgent';
+                                            $days_text = 'Tomorrow';
+                                        } elseif ($days_until <= 2) {
+                                            $badge_class = 'soon';
+                                            $days_text = 'In ' . $days_until . ' days';
+                                        } elseif ($days_until <= 4) {
+                                            $badge_class = 'upcoming';
+                                            $days_text = 'In ' . $days_until . ' days';
+                                        } else {
+                                            $badge_class = 'later';
+                                            $days_text = 'In ' . $days_until . ' days';
+                                        }
+                                    ?>
                                     <div class="col-md-6 mb-3">
                                         <div class="card reminder-card h-100">
                                             <div class="card-body">
@@ -294,6 +347,7 @@ function logNotification($type, $contact, $patient_name, $content) {
                                                             <i class="fas fa-clock"></i>
                                                             <?= date('D, M j', strtotime($appointment['appointment_date'])); ?> 
                                                             at <?= date('g:i A', strtotime($appointment['appointment_time'])); ?>
+                                                            <span class="badge <?= $badge_class ?> days-badge"><?= $days_text ?></span>
                                                         </div>
                                                         
                                                         <div class="patient-info mb-2">
@@ -340,7 +394,7 @@ function logNotification($type, $contact, $patient_name, $content) {
                                 <div class="text-center py-4">
                                     <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
                                     <h5>No Upcoming Appointments</h5>
-                                    <p class="text-muted">There are no appointments scheduled for the next 24-48 hours.</p>
+                                    <p class="text-muted">There are no appointments scheduled for the next 7 days.</p>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -413,7 +467,7 @@ function logNotification($type, $contact, $patient_name, $content) {
                     <div class="card-body">
                         <div class="mb-3">
                             <h6><i class="fas fa-1 text-primary"></i> Select Appointments</h6>
-                            <p class="small">Choose appointments from the next 24-48 hours</p>
+                            <p class="small">Choose appointments from the next 7 days</p>
                         </div>
                         <div class="mb-3">
                             <h6><i class="fas fa-2 text-primary"></i> Choose Method</h6>
@@ -433,6 +487,40 @@ function logNotification($type, $contact, $patient_name, $content) {
                                 <i class="fas fa-clock"></i> <strong>Delivery Time:</strong>
                                 <br>Notifications are typically delivered within a hour after sending.
                             </small>
+                        </div>
+                        
+                        <div class="alert alert-warning mt-3">
+                            <small>
+                                <i class="fas fa-calendar-alt"></i> <strong>Reminder Window:</strong>
+                                <br>Now sending reminders for appointments within the next week (1-7 days in advance).
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Days Legend -->
+                <div class="card shadow-sm mt-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-tags"></i> Timing Legend
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge urgent me-2" style="width: 20px; height: 20px;"></span>
+                            <small>Tomorrow (Urgent)</small>
+                        </div>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge soon me-2" style="width: 20px; height: 20px;"></span>
+                            <small>2-3 days (Soon)</small>
+                        </div>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge upcoming me-2" style="width: 20px; height: 20px;"></span>
+                            <small>4-5 days (Upcoming)</small>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="badge later me-2" style="width: 20px; height: 20px;"></span>
+                            <small>6-7 days (Later)</small>
                         </div>
                     </div>
                 </div>
