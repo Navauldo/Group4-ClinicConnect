@@ -50,37 +50,41 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_patient'])) {
     $new_phone = trim($_POST['patient_phone']);
     $new_email = trim($_POST['patient_email']);
     
-    // Validate phone number format
+    // Validate phone number format - MUST contain only numbers and be 7-15 digits
     $clean_phone = preg_replace('/[^0-9]/', '', $new_phone);
     if (strlen($clean_phone) < 7 || strlen($clean_phone) > 15) {
-        $error_message = "<div class='alert alert-danger'><strong>❌ Validation Error:</strong> Please enter a valid phone number (7-15 digits).</div>";
-    } else {
-        // Validate email format if provided
-        if (!empty($new_email) && !filter_var($new_email, FILTER_VALIDATE_EMAIL)) {
-            $error_message = "<div class='alert alert-danger'><strong>❌ Validation Error:</strong> Please enter a valid email address.</div>";
-        } else {
-            try {
-                // Update all appointments for this patient with the new contact information
-                $stmt = $pdo->prepare("
-                    UPDATE appointments 
-                    SET patient_phone = ?, patient_email = ?
-                    WHERE patient_name = ?
-                ");
-                $stmt->execute([$new_phone, $new_email, $patient_name]);
-                
-                $affected_rows = $stmt->rowCount();
-                
-                $success_message = "<div class='alert alert-success'><strong>✅ Contact Information Updated!</strong><br>";
-                $success_message .= "Updated contact information for patient: <strong>$patient_name</strong><br>";
-                $success_message .= "<small>Affected $affected_rows appointment(s). Future reminders will use the updated contact information.</small></div>";
-                
-                // Clear search results to show updated data
-                $search_results = [];
-                $search_performed = false;
-                
-            } catch(PDOException $e) {
-                $error_message = "<div class='alert alert-danger'><strong>❌ Update Error:</strong> " . $e->getMessage() . "</div>";
-            }
+        $error_message = "<div class='alert alert-danger'><strong>❌ Validation Error:</strong> Phone number must contain only numbers and be 7-15 digits long. Letters and special characters are not allowed.</div>";
+    } 
+    // Check if original phone contained letters (user bypassed client-side validation)
+    else if (preg_match('/[a-zA-Z]/', $new_phone)) {
+        $error_message = "<div class='alert alert-danger'><strong>❌ Validation Error:</strong> Phone number cannot contain letters. Please enter numbers only.</div>";
+    }
+    // Validate email format if provided
+    else if (!empty($new_email) && !filter_var($new_email, FILTER_VALIDATE_EMAIL)) {
+        $error_message = "<div class='alert alert-danger'><strong>❌ Validation Error:</strong> Please enter a valid email address.</div>";
+    }
+    else {
+        try {
+            // Update all appointments for this patient with the new contact information
+            $stmt = $pdo->prepare("
+                UPDATE appointments 
+                SET patient_phone = ?, patient_email = ?
+                WHERE patient_name = ?
+            ");
+            $stmt->execute([$new_phone, $new_email, $patient_name]);
+            
+            $affected_rows = $stmt->rowCount();
+            
+            $success_message = "<div class='alert alert-success'><strong>✅ Contact Information Updated!</strong><br>";
+            $success_message .= "Updated contact information for patient: <strong>$patient_name</strong><br>";
+            $success_message .= "<small>Affected $affected_rows appointment(s). Future reminders will use the updated contact information.</small></div>";
+            
+            // Clear search results to show updated data
+            $search_results = [];
+            $search_performed = false;
+            
+        } catch(PDOException $e) {
+            $error_message = "<div class='alert alert-danger'><strong>❌ Update Error:</strong> " . $e->getMessage() . "</div>";
         }
     }
 }
@@ -236,9 +240,8 @@ if (isset($_GET['edit'])) {
                                                name="patient_phone" 
                                                class="form-control" 
                                                value="<?= htmlspecialchars($patient_to_edit['patient_phone']) ?>" 
-                                               required
-                                               pattern="[0-9+\-\s()]{7,15}">
-                                        <small class="text-muted">Required for SMS reminders (7-15 digits)</small>
+                                               required>
+                                        <small class="text-muted">Required for SMS reminders (7-15 digits, numbers only)</small>
                                     </div>
                                 </div>
                             </div>
@@ -248,8 +251,7 @@ if (isset($_GET['edit'])) {
                                 <input type="email" 
                                        name="patient_email" 
                                        class="form-control" 
-                                       value="<?= htmlspecialchars($patient_to_edit['patient_email']) ?>"
-                                       pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$">
+                                       value="<?= htmlspecialchars($patient_to_edit['patient_email']) ?>">
                                 <small class="text-muted">Optional - for email reminders</small>
                             </div>
                             
@@ -359,26 +361,26 @@ if (isset($_GET['edit'])) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-    // Real-time phone number validation
     document.addEventListener('DOMContentLoaded', function() {
-        const phoneInput = document.querySelector('input[name="patient_phone"]');
-        if (phoneInput) {
-            phoneInput.addEventListener('input', function(e) {
-                // Remove any non-digit characters except +, -, (, ), and spaces
-                this.value = this.value.replace(/[^0-9+\-\s()]/g, '');
-            });
-        }
-
-        // Form validation for edit form
         const editForm = document.getElementById('editForm');
         if (editForm) {
             editForm.addEventListener('submit', function(event) {
                 const phoneInput = document.querySelector('input[name="patient_phone"]');
-                const cleanPhone = phoneInput.value.replace(/[^0-9]/g, '');
+                const phoneValue = phoneInput.value;
                 
+                // Client-side warning (optional) - but server-side will reject
+                if (phoneValue.match(/[a-zA-Z]/)) {
+                    if (!confirm('Phone number appears to contain letters. This will be rejected. Continue anyway?')) {
+                        event.preventDefault();
+                        phoneInput.focus();
+                        return;
+                    }
+                }
+                
+                const cleanPhone = phoneValue.replace(/[^0-9]/g, '');
                 if (cleanPhone.length < 7 || cleanPhone.length > 15) {
                     event.preventDefault();
-                    alert('Please enter a valid phone number (7-15 digits).');
+                    alert('Phone number must be 7-15 digits long.');
                     phoneInput.focus();
                     return;
                 }
