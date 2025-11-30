@@ -134,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['reschedule_appointment
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
-            <a class="navbar-brand" href="../index.php">← Back to ClinicConnect</a>
+            <a class="navbar-brand" href="javascript:history.back()">← Back</a>
         </div>
     </nav>
 
@@ -201,7 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['reschedule_appointment
                     </div>
                     
                     <button type="submit" name="reschedule_appointment" value="1" class="btn btn-warning btn-lg">Reschedule Appointment</button>
-                    <a href="../index.php" class="btn btn-secondary">Cancel</a>
+                    <a href="javascript:history.back()" class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>
