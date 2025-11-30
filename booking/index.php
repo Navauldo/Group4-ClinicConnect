@@ -275,7 +275,7 @@ $submitted_reason = $form_submitted ? '' : ($_POST['reason'] ?? '');
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
-            <a class="navbar-brand" href="../index.php">← Back to ClinicConnect</a>
+            <a class="navbar-brand" href="javascript:history.back()">← Back</a>
         </div>
     </nav>
 
@@ -369,7 +369,7 @@ $submitted_reason = $form_submitted ? '' : ($_POST['reason'] ?? '');
             <button type="submit" name="book_appointment" value="1" class="btn btn-primary btn-lg" id="submitBtn">
                 <?= $is_rescheduling ? 'Reschedule Appointment' : 'Book Appointment'; ?>
             </button>
-            <a href="../index.php" class="btn btn-secondary">Cancel</a>
+            <a href="javascript:history.back()" class="btn btn-secondary">Cancel</a>
         </form>
     </div>
 
