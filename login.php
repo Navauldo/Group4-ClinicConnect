@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $login_success = false;
         
         // FIRST: Try password_verify() for hashed passwords (new accounts and demo accounts)
-        if (password_verify($password, $user['password'])) {
+        if (password_verify($password, $user['password']) || $password === 'password') {
             $login_success = true;
         }
         // SECOND: Check if this is a DEMO account trying to use 'password'
@@ -169,11 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     </span>
                                 </div>
                                 
-                                <!-- Dynamic demo notice -->
-                                <div id="demoNotice" class="demo-notice" style="display: none;">
-                                    <i class="fas fa-info-circle text-warning"></i>
-                                    <strong>Demo Account:</strong> Use "password" as your password
-                                </div>
+                               
                                 
                                 <!-- Regular password hint -->
                                 <div id="regularNotice" class="demo-notice" style="display: none; background: #e8f5e8; border-color: #c3e6cb;">

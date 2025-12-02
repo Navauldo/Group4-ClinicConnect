@@ -53,12 +53,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['register_patient'])) {
     // If no errors, create account
     if (empty($errors)) {
         try {
-            // For demo, we'll store plain text password
-            // In production, use: $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            // HASH THE PASSWORD FOR SECURITY
+           
+            // When creating account, HASH the password
+           $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+           $stmt->execute([$email, $hashed_password, $name, 'patient']);
             
             $stmt = $pdo->prepare("INSERT INTO users (email, password, name, role, created_at, updated_at) 
                                    VALUES (?, ?, ?, 'patient', NOW(), NOW())");
-            $stmt->execute([$email, $password, $name]);
+            $stmt->execute([$email, $hashed_password, $name]);
             
             $registration_success = "<div class='alert alert-success'>
                 <strong>✅ Account Created Successfully!</strong><br>
@@ -156,9 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['register_patient'])) {
                 <i class="fas fa-hospital"></i> ClinicConnect
             </a>
             <div class="navbar-nav ms-auto">
-                <a href="login.php?role=patient" class="nav-link text-light">
-                    <i class="fas fa-sign-in-alt"></i> Patient Login
-                </a>
+              
             </div>
         </div>
     </nav>
@@ -331,16 +332,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['register_patient'])) {
                 <div class="card">
                     <div class="card-header bg-info text-white">
                         <h4 class="mb-0">
-                            <i class="fas fa-bolt"></i> Quick Access
-                        </h4>
+                            <i class="fas fa-bolt"></i> Staff Access
+                        </h5>
                     </div>
                     <div class="card-body">
                         <div class="row g-3">
-                            <div class="col-md-6">
-                                <a href="login.php?role=patient" class="btn btn-outline-primary w-100">
-                                    <i class="fas fa-user"></i> Patient Login
-                                </a>
-                            </div>
+                  
                             <div class="col-md-6">
                                 <a href="login.php?role=staff" class="btn btn-outline-success w-100">
                                     <i class="fas fa-user-nurse"></i> Staff Login
@@ -351,11 +348,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['register_patient'])) {
                                     <i class="fas fa-user-shield"></i> Admin Login
                                 </a>
                             </div>
-                            <div class="col-md-6">
-                                <a href="booking/index.php" class="btn btn-outline-secondary w-100">
-                                    <i class="fas fa-calendar"></i> Book as Guest
-                                </a>
-                            </div>
+                            
                         </div>
                     </div>
                 </div>

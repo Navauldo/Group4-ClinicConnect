@@ -356,74 +356,7 @@ $recent_appointments = $stmt->fetchAll();
                     </form>
                 </div>
                 
-                <!-- Change Password Form -->
-                <div class="form-section">
-                    <h5><i class="fas fa-key"></i> Change Password</h5>
-                    <form method="POST" id="passwordForm">
-                        <?php if (strpos($user['email'], '@demo.com') !== false): ?>
-                        <div class="alert alert-warning">
-                            <i class="fas fa-ban"></i>
-                            <strong>Password changes disabled:</strong> Demo accounts cannot change passwords.
-                        </div>
-                        <?php endif; ?>
-                        
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Current Password *</label>
-                                    <input type="password" name="current_password" class="form-control" 
-                                           placeholder="Enter current password"
-                                           <?= strpos($user['email'], '@demo.com') !== false ? 'disabled' : '' ?>>
-                                    <div class="help-text">
-                                        Enter the exact password you used when registering
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">New Password *</label>
-                                    <input type="password" name="new_password" id="newPassword" class="form-control" 
-                                           placeholder="Enter new password" 
-                                           oninput="checkPasswordStrength()"
-                                           <?= strpos($user['email'], '@demo.com') !== false ? 'disabled' : '' ?>>
-                                    <div class="password-strength">
-                                        <div class="password-strength-bar" id="passwordStrengthBar"></div>
-                                    </div>
-                                    <small id="passwordStrengthText" class="form-text"></small>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Confirm Password *</label>
-                                    <input type="password" name="confirm_password" class="form-control" 
-                                           placeholder="Confirm new password"
-                                           <?= strpos($user['email'], '@demo.com') !== false ? 'disabled' : '' ?>>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="alert alert-info">
-                            <i class="fas fa-lightbulb"></i>
-                            <strong>Password Requirements:</strong>
-                            <ul class="mb-0">
-                                <li>At least 6 characters long</li>
-                                <li>Include uppercase and lowercase letters</li>
-                                <li>Include at least one number</li>
-                            </ul>
-                        </div>
-                        
-                        <div class="mt-3">
-                            <button type="submit" name="change_password" value="1" class="btn btn-primary"
-                                    <?= strpos($user['email'], '@demo.com') !== false ? 'disabled' : '' ?>>
-                                <i class="fas fa-key"></i> Change Password
-                            </button>
-                            <button type="reset" class="btn btn-secondary">Reset</button>
-                            <?php if (strpos($user['email'], '@demo.com') !== false): ?>
-                            <small class="text-muted ms-2">Password changes disabled for demo accounts</small>
-                            <?php endif; ?>
-                        </div>
-                    </form>
-                </div>
+               
             </div>
             
             <!-- Account Information Sidebar -->

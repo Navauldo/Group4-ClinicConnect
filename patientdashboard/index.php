@@ -240,11 +240,15 @@ $unread_notifications = $stmt->fetch()['count'];
                 </a>
             </div>
             <div class="col-md-3 col-6 mb-3">
-                <a href="reschedule.php" class="quick-action-btn btn-reschedule">
-                    <i class="fas fa-calendar-alt fa-2x mb-2"></i><br>
-                    Reschedule Appointment
+                  <a href="messages.php" class="quick-action-btn btn-messages position-relative">
+                    <i class="fas fa-comments fa-2x mb-2"></i><br>
+                    Messages & Notifications
+                    <?php if ($unread_notifications > 0): ?>
+                        <span class="notification-badge"><?= $unread_notifications ?></span>
+                    <?php endif; ?>
                 </a>
             </div>
+
             <div class="col-md-3 col-6 mb-3">
                 <a href="history.php" class="quick-action-btn btn-history">
                     <i class="fas fa-history fa-2x mb-2"></i><br>
@@ -257,20 +261,12 @@ $unread_notifications = $stmt->fetch()['count'];
                     My Profile
                 </a>
             </div>
+
+            <!-- Messages & Notifications Quick Action -->
+       
         </div>
 
-        <!-- Messages & Notifications Quick Action -->
-        <div class="row mb-4">
-            <div class="col-md-3 col-6 offset-md-3 mb-3">
-                <a href="messages.php" class="quick-action-btn btn-messages position-relative">
-                    <i class="fas fa-comments fa-2x mb-2"></i><br>
-                    Messages & Notifications
-                    <?php if ($unread_notifications > 0): ?>
-                        <span class="notification-badge"><?= $unread_notifications ?></span>
-                    <?php endif; ?>
-                </a>
-            </div>
-        </div>
+        
 
         <!-- Upcoming Appointments -->
         <div class="row">
