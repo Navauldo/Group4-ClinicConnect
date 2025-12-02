@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Nov 29, 2025 at 05:10 AM
+-- Generation Time: Dec 02, 2025 at 05:21 AM
 -- Server version: 10.4.27-MariaDB
 -- PHP Version: 8.2.0
 
@@ -52,10 +52,34 @@ INSERT INTO `appointments` (`id`, `patient_name`, `patient_email`, `patient_phon
 (3, 'Dora', 'dora@gmail.com', '1234567789', '2025-12-10', '11:30:00', 'Pain', 'booked', 'CC202511283171', '2025-11-28 00:10:01', 0, NULL),
 (4, 'Test', 'test@gmail.com', '123456789', '2026-03-04', '09:30:00', 'test', 'booked', 'CC202511283365', '2025-11-28 02:23:12', 0, NULL),
 (5, 'Test Patient One', 'test1@email.com', '876-555-0101', '2025-12-15', '09:00:00', 'Checkup', 'booked', 'TEST001', '2025-11-28 04:28:26', 0, NULL),
-(6, 'Test Patient Two', 'test2@email.com', '876-555-0102', '2025-12-04', '09:00:00', 'Consultation', 'booked', 'TEST002', '2025-11-28 04:28:26', 0, NULL),
+(6, 'Test Patient Two', 'test2@email.com', '876-555-0102', '2025-12-08', '09:00:00', 'Consultation', 'booked', 'TEST002', '2025-11-28 04:28:26', 0, NULL),
 (7, 'Test Patient Three', 'test3@email.com', '876-555-0103', '2025-12-11', '12:00:00', 'Follow-up', 'booked', 'TEST003', '2025-11-28 04:28:26', 1, NULL),
-(8, 'Sendgrid Test', 'jonesvivian930@gmail.com', '123456789', '2025-12-01', '09:00:00', 'Check up', 'booked', 'CC202511283010', '2025-11-28 05:28:11', 1, '2025-11-28 21:06:55'),
-(9, 'Test Case 4', 'test@gmail.com', '1234567789', '2025-12-03', '14:00:00', 'Check up', 'booked', 'CC202511294324', '2025-11-29 02:48:29', 0, NULL);
+(8, 'Sendgrid Test', 'jonesvivian930@gmail.com', '123456789', '2025-12-08', '09:00:00', 'Check up', 'booked', 'CC202511283010', '2025-11-28 05:28:11', 1, '2025-11-28 21:06:55'),
+(9, 'Test Case 4', 'test@gmail.com', '1234567789', '2025-12-03', '14:00:00', 'Check up', 'booked', 'CC202511294324', '2025-11-29 02:48:29', 0, NULL),
+(10, 'Mike Smith', 'mike.smith@demo.com', '1234567789', '2025-12-04', '09:00:00', 'Check up', 'booked', 'CC202512023701', '2025-12-01 23:02:16', 1, '2025-12-01 23:06:18'),
+(11, 'Full House', 'house@gmail.com', '1234567789', '2025-12-08', '09:00:00', 'Check up', 'no-show', 'CC202512021206', '2025-12-02 01:00:25', 0, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `appointment_logs`
+--
+
+CREATE TABLE `appointment_logs` (
+  `id` int(11) NOT NULL,
+  `appointment_id` int(11) NOT NULL,
+  `action` varchar(50) NOT NULL,
+  `details` text DEFAULT NULL,
+  `performed_by` varchar(50) DEFAULT 'system',
+  `performed_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `appointment_logs`
+--
+
+INSERT INTO `appointment_logs` (`id`, `appointment_id`, `action`, `details`, `performed_by`, `performed_at`) VALUES
+(1, 10, 'rescheduled', 'Rescheduled from 2025-12-09 10:00:00 to 2025-12-02 09:00:00', 'patient', '2025-12-01 23:35:51');
 
 -- --------------------------------------------------------
 
@@ -96,8 +120,7 @@ CREATE TABLE `clinic_closures` (
 --
 
 INSERT INTO `clinic_closures` (`id`, `closure_date`, `reason`, `created_at`) VALUES
-(1, '2026-01-01', 'Holiday', '2025-11-28 15:52:17'),
-(3, '2025-12-25', 'Christmas', '2025-11-28 20:49:06');
+(1, '2026-01-01', 'Holiday', '2025-11-28 15:52:17');
 
 -- --------------------------------------------------------
 
@@ -120,10 +143,66 @@ CREATE TABLE `clinic_schedules` (
 
 INSERT INTO `clinic_schedules` (`id`, `clinic_id`, `day_of_week`, `start_time`, `end_time`, `is_active`) VALUES
 (3, 1, 3, '09:00:00', '17:00:00', 1),
-(5, 1, 5, '09:00:00', '17:00:00', 1),
 (8, 1, 2, '09:00:00', '17:00:00', 1),
-(24, 1, 1, '09:00:00', '17:00:00', 1),
-(25, 1, 4, '09:00:00', '17:00:00', 1);
+(25, 1, 4, '09:00:00', '17:00:00', 1),
+(42, 1, 1, '09:00:00', '17:00:00', 1),
+(43, 1, 5, '09:00:00', '17:00:00', 1);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `patient_messages`
+--
+
+CREATE TABLE `patient_messages` (
+  `id` int(11) NOT NULL,
+  `patient_id` int(11) NOT NULL,
+  `patient_email` varchar(100) NOT NULL,
+  `patient_name` varchar(100) NOT NULL,
+  `subject` varchar(200) DEFAULT NULL,
+  `message` text NOT NULL,
+  `reply` text DEFAULT NULL,
+  `status` enum('new','read','replied','resolved') DEFAULT 'new',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `replied_at` timestamp NULL DEFAULT NULL,
+  `is_urgent` tinyint(1) DEFAULT 0,
+  `message_type` enum('general','appointment_change','medical_query','billing') DEFAULT 'general'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `patient_messages`
+--
+
+INSERT INTO `patient_messages` (`id`, `patient_id`, `patient_email`, `patient_name`, `subject`, `message`, `reply`, `status`, `created_at`, `replied_at`, `is_urgent`, `message_type`) VALUES
+(1, 3, 'mike.smith@demo.com', 'Mike Smith', 'Hello', 'Hello', 'Hi, how can I assist you?', 'replied', '2025-12-02 03:48:28', '2025-12-02 04:00:02', 0, 'general');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `patient_notifications`
+--
+
+CREATE TABLE `patient_notifications` (
+  `id` int(11) NOT NULL,
+  `patient_id` int(11) NOT NULL,
+  `patient_email` varchar(100) NOT NULL,
+  `notification_type` enum('appointment_change','reminder','message_reply','general') NOT NULL,
+  `title` varchar(200) NOT NULL,
+  `message` text NOT NULL,
+  `is_read` tinyint(1) DEFAULT 0,
+  `related_appointment_id` int(11) DEFAULT NULL,
+  `related_reference` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `patient_notifications`
+--
+
+INSERT INTO `patient_notifications` (`id`, `patient_id`, `patient_email`, `notification_type`, `title`, `message`, `is_read`, `related_appointment_id`, `related_reference`, `created_at`) VALUES
+(1, 3, 'mike.smith@demo.com', 'message_reply', 'Reply to your message: Hello', 'The clinic has responded to your message. Reply: Hi, how can I assist you?...', 0, NULL, NULL, '2025-12-02 04:00:02'),
+(2, 3, 'mike.smith@demo.com', 'reminder', 'Appointment Reminder', 'Reminder: Your appointment is on Thursday, December 4 at 9:00 AM. Reference: CC202512023701\n\nPlease arrive 15 minutes before your scheduled time.', 0, 10, 'CC202512023701', '2025-12-02 04:06:18'),
+(3, 11, 'house@gmail.com', 'appointment_change', 'Appointment Status Changed', 'Your appointment (Ref: CC202512021206) has been marked as \'no-show\'. ', 0, 11, 'CC202512021206', '2025-12-02 04:20:04');
 
 -- --------------------------------------------------------
 
@@ -147,7 +226,33 @@ CREATE TABLE `reminder_logs` (
 
 INSERT INTO `reminder_logs` (`id`, `appointment_id`, `reminder_type`, `sent_at`, `status`, `error_message`, `created_at`) VALUES
 (1, 8, 'email', '2025-11-28 21:00:33', 'sent', NULL, '2025-11-29 02:00:33'),
-(2, 8, 'email', '2025-11-28 21:06:55', 'sent', NULL, '2025-11-29 02:06:55');
+(2, 8, 'email', '2025-11-28 21:06:55', 'sent', NULL, '2025-11-29 02:06:55'),
+(3, 10, 'email', '2025-12-01 23:06:18', 'sent', NULL, '2025-12-02 04:06:18');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `status_change_logs`
+--
+
+CREATE TABLE `status_change_logs` (
+  `id` int(11) NOT NULL,
+  `appointment_id` int(11) NOT NULL,
+  `booking_reference` varchar(50) NOT NULL,
+  `old_status` varchar(50) DEFAULT NULL,
+  `new_status` varchar(50) NOT NULL,
+  `changed_by` int(11) NOT NULL,
+  `changed_by_name` varchar(100) NOT NULL,
+  `reason` text DEFAULT NULL,
+  `changed_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `status_change_logs`
+--
+
+INSERT INTO `status_change_logs` (`id`, `appointment_id`, `booking_reference`, `old_status`, `new_status`, `changed_by`, `changed_by_name`, `reason`, `changed_at`) VALUES
+(1, 11, 'CC202512021206', 'booked', 'no-show', 5, 'Sarah Nurse', '', '2025-12-02 04:20:04');
 
 -- --------------------------------------------------------
 
@@ -178,7 +283,11 @@ INSERT INTO `users` (`id`, `email`, `password`, `name`, `role`, `created_at`, `u
 (6, 'dr.johnson@demo.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Dr. Johnson', 'staff', '2025-11-29 03:40:07', '2025-11-29 03:40:07'),
 (7, 'reception.mary@demo.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Mary Receptionist', 'staff', '2025-11-29 03:40:07', '2025-11-29 03:40:07'),
 (8, 'admin.clinic@demo.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Clinic Admin', 'admin', '2025-11-29 03:40:07', '2025-11-29 03:40:07'),
-(9, 'super.admin@demo.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Super Admin', 'admin', '2025-11-29 03:40:07', '2025-11-29 03:40:07');
+(9, 'super.admin@demo.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Super Admin', 'admin', '2025-11-29 03:40:07', '2025-11-29 03:40:07'),
+(10, 'billoxford@gmail.com', '$2y$10$AbCdEfGhIjKlMnOpQrStUvWxYzAbCdEfGhIjKlMnOpQrStUvWxYzAb', 'Bill Oxford', 'patient', '2025-12-02 00:14:40', '2025-12-02 01:27:55'),
+(11, 'house@gmail.com', '$2y$10$XwYzAbCdEfGhIjKlMnOpQrStUvWxYzAbCdEfGhIjKlMnOpQrStUvW', 'Full House', 'patient', '2025-12-02 00:35:53', '2025-12-02 01:27:55'),
+(12, 'testtest@gmail.com', '$2y$10$TqL8T7nLrGpVJhFdYsNq1eYk1rA2bC3dE4fG5hI6jK7lM8nO9pQ0rS1tU2vW', 'Test Case 12', 'patient', '2025-12-02 01:17:33', '2025-12-02 01:27:55'),
+(13, 'oxford@gmail.com', 'oxford123', 'Bill Oxford', 'patient', '2025-12-02 01:52:42', '2025-12-02 01:52:42');
 
 --
 -- Indexes for dumped tables
@@ -189,6 +298,13 @@ INSERT INTO `users` (`id`, `email`, `password`, `name`, `role`, `created_at`, `u
 --
 ALTER TABLE `appointments`
   ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `appointment_logs`
+--
+ALTER TABLE `appointment_logs`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `appointment_id` (`appointment_id`);
 
 --
 -- Indexes for table `clinics`
@@ -210,11 +326,35 @@ ALTER TABLE `clinic_schedules`
   ADD UNIQUE KEY `unique_clinic_day` (`clinic_id`,`day_of_week`);
 
 --
+-- Indexes for table `patient_messages`
+--
+ALTER TABLE `patient_messages`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_patient` (`patient_id`),
+  ADD KEY `idx_status` (`status`);
+
+--
+-- Indexes for table `patient_notifications`
+--
+ALTER TABLE `patient_notifications`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_patient` (`patient_id`),
+  ADD KEY `idx_unread` (`patient_id`,`is_read`);
+
+--
 -- Indexes for table `reminder_logs`
 --
 ALTER TABLE `reminder_logs`
   ADD PRIMARY KEY (`id`),
   ADD KEY `appointment_id` (`appointment_id`);
+
+--
+-- Indexes for table `status_change_logs`
+--
+ALTER TABLE `status_change_logs`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_appointment` (`appointment_id`),
+  ADD KEY `idx_reference` (`booking_reference`);
 
 --
 -- Indexes for table `users`
@@ -231,7 +371,13 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `appointments`
 --
 ALTER TABLE `appointments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+
+--
+-- AUTO_INCREMENT for table `appointment_logs`
+--
+ALTER TABLE `appointment_logs`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `clinics`
@@ -249,23 +395,47 @@ ALTER TABLE `clinic_closures`
 -- AUTO_INCREMENT for table `clinic_schedules`
 --
 ALTER TABLE `clinic_schedules`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
+
+--
+-- AUTO_INCREMENT for table `patient_messages`
+--
+ALTER TABLE `patient_messages`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `patient_notifications`
+--
+ALTER TABLE `patient_notifications`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `reminder_logs`
 --
 ALTER TABLE `reminder_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- AUTO_INCREMENT for table `status_change_logs`
+--
+ALTER TABLE `status_change_logs`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- Constraints for dumped tables
 --
+
+--
+-- Constraints for table `appointment_logs`
+--
+ALTER TABLE `appointment_logs`
+  ADD CONSTRAINT `appointment_logs_ibfk_1` FOREIGN KEY (`appointment_id`) REFERENCES `appointments` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `reminder_logs`

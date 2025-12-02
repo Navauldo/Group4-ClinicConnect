@@ -72,6 +72,35 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_reminders'])) {
                     $log_stmt = $pdo->prepare("INSERT INTO reminder_logs (appointment_id, reminder_type, sent_at, status) VALUES (?, ?, NOW(), 'sent')");
                     $log_stmt->execute([$appointment_id, $reminder_type]);
                     
+                    // CREATE NOTIFICATION FOR PATIENT DASHBOARD
+                    $notification_stmt = $pdo->prepare("
+                        INSERT INTO patient_notifications 
+                        (patient_id, patient_email, notification_type, title, message, related_appointment_id, related_reference) 
+                        VALUES (?, ?, 'reminder', ?, ?, ?, ?)
+                    ");
+                    
+                    // Get patient ID
+                    $patient_stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                    $patient_stmt->execute([$appointment['patient_email']]);
+                    $patient = $patient_stmt->fetch();
+                    
+                    if ($patient) {
+                        $title = "Appointment Reminder";
+                        $message = "Reminder: Your appointment is on " . date('l, F j', strtotime($appointment['appointment_date'])) . 
+                                   " at " . date('g:i A', strtotime($appointment['appointment_time'])) . 
+                                   ". Reference: " . $appointment['booking_reference'] . 
+                                   "\n\nPlease arrive 15 minutes before your scheduled time.";
+                        
+                        $notification_stmt->execute([
+                            $patient['id'],
+                            $appointment['patient_email'],
+                            $title,
+                            $message,
+                            $appointment_id,
+                            $appointment['booking_reference']
+                        ]);
+                    }
+                    
                     // Store notification details for display
                     $notification_details[] = $notification_result['details'];
                 } else {
@@ -88,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_reminders'])) {
         if ($sent_count > 0) {
             $success_message = "<div class='alert alert-success'><strong>✅ Notifications Sent Successfully!</strong><br>";
             $success_message .= "📧 Delivered: $sent_count notifications<br>";
-            $success_message .= "<small>Patients should receive the notifications shortly.</small>";
+            $success_message .= "<small>Patients should receive the notifications shortly and will also see them in their dashboard.</small>";
             
             // Show notification details
             if (!empty($notification_details)) {
@@ -584,6 +613,13 @@ $email_available = checkEmailFunction();
             border-left: 4px solid #ffc107;
             background: #fff3cd;
         }
+        .dashboard-notification {
+            border-left: 4px solid #9c27b0;
+            background: #f3e5f5;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -610,20 +646,16 @@ $email_available = checkEmailFunction();
                         Emails: ✅ Ready (Resend.com API) | SMS: ✅ Ready (Jamaican & International carriers)
                     </small>
                 </div>
-
-                <!-- Setup Instructions -->
-                <div class="setup-alert mb-4">
-                    <h6><i class="fas fa-info-circle text-warning"></i> Email Setup Required</h6>
-                    <p class="mb-1">To send actual emails, you need to:</p>
-                    <ol class="mb-1">
-                        <li>Go to <a href="https://resend.com" target="_blank">resend.com</a> and sign up (free)</li>
-                        <li>Get your API key from the dashboard</li>
-                        <li>Replace <code>re_123456789</code> in the code with your actual API key</li>
-                        <li>Verify your domain or use the provided test email</li>
-                    </ol>
-                    <small class="text-muted">Until then, emails will be simulated for demonstration.</small>
-                </div>
                 
+                <!-- Dashboard Notification Feature -->
+                <div class="dashboard-notification">
+                    <i class="fas fa-info-circle text-purple"></i>
+                    <strong>New Feature:</strong> Reminders now appear in patient dashboard!
+                    <small class="text-muted d-block">
+                        When you send a reminder, patients will see it in their "Messages & Notifications" section.
+                    </small>
+                </div>
+               
                 <?php echo $error_message; ?>
                 <?php echo $success_message; ?>
                 
@@ -782,6 +814,12 @@ $email_available = checkEmailFunction();
                                             </label>
                                         </div>
                                     </div>
+                                    
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-desktop"></i>
+                                        <strong>Dashboard Integration:</strong> 
+                                        <small>All reminders will also appear in the patient's dashboard under "Messages & Notifications".</small>
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="reminder-stats">
@@ -790,6 +828,9 @@ $email_available = checkEmailFunction();
                                         <small>ACTUAL notifications</small>
                                         <div class="mt-2" id="carrierInfo">
                                             <small>Carriers: Digicel, Flow & International</small>
+                                        </div>
+                                        <div class="mt-2">
+                                            <small><i class="fas fa-desktop"></i> + Dashboard notifications</small>
                                         </div>
                                     </div>
                                 </div>
@@ -836,16 +877,12 @@ $email_available = checkEmailFunction();
                             <p class="small">Deliver ACTUAL emails and SMS messages</p>
                         </div>
                         <div class="mb-3">
-                            <h6><i class="fas fa-4 text-primary"></i> Confirmation</h6>
-                            <p class="small">Patients receive real notifications immediately</p>
+                            <h6><i class="fas fa-4 text-primary"></i> Dashboard Integration</h6>
+                            <p class="small">Patients see reminders in their dashboard</p>
                         </div>
-                        
-                        <div class="alert alert-success mt-3">
-                            <small>
-                                <i class="fas fa-check-circle"></i> <strong>Real Delivery:</strong>
-                                <br>• Emails: Resend.com API (3000 free/month)
-                                <br>• SMS: Jamaican carriers & international gateways
-                            </small>
+                        <div class="mb-3">
+                            <h6><i class="fas fa-5 text-primary"></i> Confirmation</h6>
+                            <p class="small">Patients receive real notifications immediately</p>
                         </div>
                         
                         <div class="alert alert-info mt-3">
@@ -854,6 +891,15 @@ $email_available = checkEmailFunction();
                                 <br>• <strong>Jamaican Carriers:</strong> Digicel Jamaica, Flow Jamaica
                                 <br>• Email-to-SMS gateways (ATT, Verizon, T-Mobile, etc.)
                                 <br>• Local SMS tools (Gammu)
+                            </small>
+                        </div>
+                        
+                        <div class="alert alert-success mt-3">
+                            <small>
+                                <i class="fas fa-desktop"></i> <strong>Dashboard Notifications:</strong>
+                                <br>• All reminders appear in patient dashboard
+                                <br>• Patients can view past reminders
+                                <br>• No risk of missed messages
                             </small>
                         </div>
                         
@@ -867,27 +913,44 @@ $email_available = checkEmailFunction();
                     </div>
                 </div>
                 
-                <!-- Quick Setup Card -->
+                <!-- Recent Reminders Sent -->
                 <div class="card shadow-sm mt-4">
-                    <div class="card-header bg-warning text-dark">
+                    <div class="card-header bg-success text-white">
                         <h6 class="mb-0">
-                            <i class="fas fa-rocket"></i> Quick Email Setup
+                            <i class="fas fa-history"></i> Recent Reminders Sent
                         </h6>
                     </div>
                     <div class="card-body">
-                        <ol class="small">
-                            <li>Visit <a href="https://resend.com" target="_blank">resend.com</a></li>
-                            <li>Sign up (free)</li>
-                            <li>Get API key from dashboard</li>
-                            <li>Replace <code>re_123456789</code> in code</li>
-                            <li>Start sending real emails!</li>
-                        </ol>
-                        <div class="alert alert-light mt-2">
-                            <small>
-                                <i class="fas fa-star text-warning"></i>
-                                <strong>Free Tier:</strong> 3000 emails/month
-                            </small>
-                        </div>
+                        <?php 
+                        $recent_stmt = $pdo->prepare("
+                            SELECT rl.*, a.patient_name, a.booking_reference 
+                            FROM reminder_logs rl 
+                            JOIN appointments a ON rl.appointment_id = a.id 
+                            ORDER BY rl.sent_at DESC 
+                            LIMIT 5
+                        ");
+                        $recent_stmt->execute();
+                        $recent_reminders = $recent_stmt->fetchAll();
+                        ?>
+                        
+                        <?php if (empty($recent_reminders)): ?>
+                            <p class="text-muted small">No reminders sent yet.</p>
+                        <?php else: ?>
+                            <div class="list-group list-group-flush">
+                                <?php foreach ($recent_reminders as $reminder): ?>
+                                <div class="list-group-item px-0 py-2">
+                                    <div class="d-flex justify-content-between">
+                                        <small class="text-truncate"><?= htmlspecialchars($reminder['patient_name']) ?></small>
+                                        <small class="text-muted"><?= date('M j', strtotime($reminder['sent_at'])) ?></small>
+                                    </div>
+                                    <small class="text-muted d-block">
+                                        <?= $reminder['reminder_type'] == 'email' ? '📧' : '📱' ?>
+                                        Ref: <?= $reminder['booking_reference'] ?>
+                                    </small>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 
@@ -1043,7 +1106,7 @@ $email_available = checkEmailFunction();
         
         const reminderType = document.querySelector('input[name="reminder_type"]:checked').value;
         const typeName = reminderType === 'email' ? 'Email' : 'SMS';
-        const confirmed = confirm(`Send ${selectedCount} ACTUAL ${typeName} notifications?\n\nThis will deliver real messages to patients. Are you sure?`);
+        const confirmed = confirm(`Send ${selectedCount} ACTUAL ${typeName} notifications?\n\nThis will deliver real messages to patients AND appear in their dashboard. Are you sure?`);
         
         if (!confirmed) {
             e.preventDefault();

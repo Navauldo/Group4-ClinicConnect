@@ -20,15 +20,29 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $user = $stmt->fetch();
     
     if ($user) {
-        // For demo purposes, all passwords are "password"
-        // In a real system, you would use password_verify()
-        if ($password === 'password') {
+        $login_success = false;
+        
+        // FIRST: Try password_verify() for hashed passwords (new accounts and demo accounts)
+        if (password_verify($password, $user['password'])) {
+            $login_success = true;
+        }
+        // SECOND: Check if this is a DEMO account trying to use 'password'
+        // Only allow 'password' for demo accounts (email ends with @demo.com)
+        elseif (strpos($user['email'], '@demo.com') !== false && $password === 'password') {
+            $login_success = true;
+        }
+        // THIRD: Direct comparison for accounts that might have plain text passwords
+        elseif ($password === $user['password']) {
+            $login_success = true;
+        }
+        
+        if ($login_success) {
             $_SESSION['user'] = $user;
             
             // Redirect based on role
             switch ($user['role']) {
                 case 'patient':
-                    header('Location: booking/index.php');
+                    header('Location: patientdashboard/index.php');
                     break;
                 case 'staff':
                     header('Location: dashboard/index.php');
@@ -66,6 +80,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .role-badge {
             font-size: 0.9rem;
             padding: 8px 15px;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #6c757d;
+            z-index: 10;
+        }
+        .input-group {
+            position: relative;
+        }
+        .demo-notice {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 0.9rem;
         }
     </style>
 </head>
@@ -105,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             </div>
                         <?php endif; ?>
                         
-                        <form method="POST">
+                        <form method="POST" id="loginForm">
                             <input type="hidden" name="role" value="<?= $role ?>">
                             
                             <div class="mb-3">
@@ -115,25 +149,57 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         <i class="fas fa-envelope"></i>
                                     </span>
                                     <input type="email" name="email" class="form-control" required 
-                                           placeholder="Enter your email address">
+                                           placeholder="Enter your email address"
+                                           value="<?= isset($_POST['email']) ? htmlspecialchars($_POST['email']) : '' ?>"
+                                           id="emailInput">
                                 </div>
                             </div>
                             
-                            <div class="mb-3">
+                            <div class="mb-3 position-relative">
                                 <label class="form-label">Password</label>
                                 <div class="input-group">
                                     <span class="input-group-text">
                                         <i class="fas fa-lock"></i>
                                     </span>
                                     <input type="password" name="password" class="form-control" required 
-                                           placeholder="Enter your password">
+                                           placeholder="Enter your password"
+                                           id="passwordInput">
+                                    <span class="password-toggle" onclick="togglePassword()">
+                                        <i class="fas fa-eye" id="toggleIcon"></i>
+                                    </span>
                                 </div>
+                                
+                                <!-- Dynamic demo notice -->
+                                <div id="demoNotice" class="demo-notice" style="display: none;">
+                                    <i class="fas fa-info-circle text-warning"></i>
+                                    <strong>Demo Account:</strong> Use "password" as your password
+                                </div>
+                                
+                                <!-- Regular password hint -->
+                                <div id="regularNotice" class="demo-notice" style="display: none; background: #e8f5e8; border-color: #c3e6cb;">
+                                    <i class="fas fa-key text-success"></i>
+                                    <strong>Regular Account:</strong> Use the password you created
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="rememberMe" name="remember_me">
+                                <label class="form-check-label" for="rememberMe">Remember me</label>
                             </div>
                             
                             <button type="submit" class="btn btn-primary w-100 btn-lg">
                                 <i class="fas fa-sign-in-alt"></i> Login as <?= $role_display ?>
                             </button>
                         </form>
+                        
+                        <?php if ($role == 'patient'): ?>
+                        <div class="text-center mt-3">
+                            <small class="text-muted">
+                                Don't have an account? 
+                                <a href="index.php#register" class="text-decoration-none">Create one now</a>
+                            </small>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 
@@ -152,10 +218,118 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         </a>
                     </div>
                 </div>
+                
+                <!-- Help Section -->
+                <div class="card mt-4">
+                    <div class="card-body text-center">
+                        <h6><i class="fas fa-question-circle"></i> Need Help?</h6>
+                        <p class="mb-0">
+                            <small class="text-muted">
+                                Forgot password? Contact clinic administration at <strong>support@clinicconnect.com</strong>
+                            </small>
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    // Toggle password visibility
+    function togglePassword() {
+        const passwordInput = document.getElementById('passwordInput');
+        const toggleIcon = document.getElementById('toggleIcon');
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            toggleIcon.classList.remove('fa-eye');
+            toggleIcon.classList.add('fa-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            toggleIcon.classList.remove('fa-eye-slash');
+            toggleIcon.classList.add('fa-eye');
+        }
+    }
+    
+    // Check if email is a demo account
+    function checkAccountType() {
+        const email = document.getElementById('emailInput').value;
+        const demoNotice = document.getElementById('demoNotice');
+        const regularNotice = document.getElementById('regularNotice');
+        
+        if (email.includes('@demo.com')) {
+            demoNotice.style.display = 'block';
+            regularNotice.style.display = 'none';
+        } else if (email.includes('@')) {
+            demoNotice.style.display = 'none';
+            regularNotice.style.display = 'block';
+        } else {
+            demoNotice.style.display = 'none';
+            regularNotice.style.display = 'none';
+        }
+    }
+    
+    // Form validation
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('loginForm');
+        const emailInput = document.getElementById('emailInput');
+        
+        // Check account type when email changes
+        emailInput.addEventListener('input', checkAccountType);
+        emailInput.addEventListener('blur', checkAccountType);
+        
+        form.addEventListener('submit', function(event) {
+            const email = form.querySelector('input[name="email"]').value;
+            const password = form.querySelector('input[name="password"]').value;
+            
+            // Basic validation
+            if (!email.includes('@')) {
+                event.preventDefault();
+                alert('Please enter a valid email address.');
+                return;
+            }
+            
+            if (password.length < 1) {
+                event.preventDefault();
+                alert('Please enter your password.');
+                return;
+            }
+            
+            // Special check for demo accounts
+            if (email.includes('@demo.com') && password === 'password') {
+                if (!confirm('You are using the demo password. Click OK to continue or Cancel to enter a different password.')) {
+                    event.preventDefault();
+                    return;
+                }
+            }
+        });
+        
+        // Auto-focus email field
+        if (emailInput.value === '') {
+            emailInput.focus();
+        }
+        
+        // Check if there's a remembered email
+        const rememberedEmail = localStorage.getItem('clinicconnect_remembered_email');
+        if (rememberedEmail && emailInput.value === '') {
+            emailInput.value = rememberedEmail;
+            checkAccountType();
+        }
+        
+        // Handle remember me
+        const rememberCheckbox = document.getElementById('rememberMe');
+        rememberCheckbox.addEventListener('change', function() {
+            if (this.checked && emailInput.value) {
+                localStorage.setItem('clinicconnect_remembered_email', emailInput.value);
+            } else {
+                localStorage.removeItem('clinicconnect_remembered_email');
+            }
+        });
+        
+        // Initial check
+        checkAccountType();
+    });
+    </script>
 </body>
 </html>
