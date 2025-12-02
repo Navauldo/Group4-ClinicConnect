@@ -105,13 +105,13 @@ foreach ($schedules as $schedule) {
                                 <div class="col-md-3">
                                     <label class="form-label">Day of Week</label>
                                     <select name="day_of_week" class="form-control" required>
-                                        <option value="0">Sunday</option>
+                          
                                         <option value="1">Monday</option>
                                         <option value="2">Tuesday</option>
                                         <option value="3">Wednesday</option>
                                         <option value="4">Thursday</option>
                                         <option value="5">Friday</option>
-                                        <option value="6">Saturday</option>
+                                    
                                     </select>
                                 </div>
                                 <div class="col-md-3">
@@ -220,46 +220,15 @@ foreach ($schedules as $schedule) {
                     </div>
                 </div>
 
-                <!-- Special Closures -->
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <h6>Special Closure Dates</h6>
-                    </div>
-                    <div class="card-body">
-                        <p class="text-muted small">Add holidays or special closure dates when the clinic will be closed.</p>
-                        <form method="POST">
-                            <div class="mb-2">
-                                <label class="form-label small">Closure Date</label>
-                                <input type="date" name="closure_date" class="form-control form-control-sm">
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label small">Reason</label>
-                                <input type="text" name="closure_reason" class="form-control form-control-sm" placeholder="e.g., Public Holiday">
-                            </div>
-                            <button type="submit" name="add_closure" class="btn btn-warning btn-sm">Add Closure</button>
-                        </form>
-                    </div>
-                </div>
+                
 
-                <!-- Info Card -->
-                <div class="card mt-4">
-                    <div class="card-body">
-                        <h6>About Schedule Management</h6>
-                        <p class="small">Set your clinic's operating hours to control when patients can book appointments.</p>
-                        <ul class="small">
-                            <li>Mark days as closed for holidays</li>
-                            <li>Set different hours for weekends</li>
-                            <li>Prevent bookings outside clinic hours</li>
-                            <li>Manage special closure dates</li>
-                        </ul>
-                    </div>
-                </div>
+                
             </div>
         </div>
         
         <div class="mt-4">
             <a href="index.php" class="btn btn-secondary">← Back to Dashboard</a>
-            <a href="../booking/" class="btn btn-outline-primary">Test Booking Page</a>
+            
         </div>
     </div>
 

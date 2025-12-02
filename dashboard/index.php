@@ -259,6 +259,11 @@ $unread_messages = $msg_stmt->fetch()['count'];
                         <i class="fas fa-edit"></i> Manage Status
                     </a>
                 </div>
+
+               
+
+
+                
                 <div class="col-md-3 mb-2">
                     <a href="patient_messages.php" class="btn btn-outline-primary w-100 position-relative">
                         <i class="fas fa-comments"></i> Patient Messages
