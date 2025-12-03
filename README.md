@@ -10,15 +10,14 @@
 
 ### Installation
 1. Clone this repository to your htdocs folder
-2. Import `database/schema.sql` to phpMyAdmin
-3. Copy `config.example.php` to `config.php` and update database credentials
-4. Access via: http://localhost/Group4-ClinicConnect
+2. Import `clinic_connect.sql` to phpMyAdmin
+3. Access via: http://localhost/Group4-ClinicConnect
 
 
 ## Database Setup
 
 1. **Import Database:**
-   - Start XAMPP and open phpMyAdmin (http://localhost/phpmyadmin)
+   - Start XAMPP(Turn on the MYSQL Database and Apache Web Server) and open phpMyAdmin (http://localhost/phpmyadmin)
    - Create new database: `clinic_connect`
    - Click the "Import" tab
    - Click "Choose File" and select: `clinic_connect.sql`
@@ -28,18 +27,8 @@
    - You should see tables like: appointments, clinic hours, clinics, etc.
    - Check that all tables were created successfully
 
-
-Installation
-
-    Clone this repository to your htdocs folder:
-    bash
-
-git clone https://github.com/Navauldo/ClinicConnect.git Group4-ClinicConnect
-
-    Update database credentials if needed (default should work: root/no password)
-
-Access Application:
-http://localhost/Group4-ClinicConnect/index.php
+### Reminders
+You can find the clinic_connect.sql inside of the database folder
 
 
 ### Current Features
@@ -48,11 +37,10 @@ http://localhost/Group4-ClinicConnect/index.php
 - ✅ Staff Dashboard (FR-003) - Navauldo
 - ✅ Cancel Appointments (FR-005) Navauldo
 - ✅ Clinic Schedule Management (FR-008) - Navauldo
-- ✅ Send Reminders (FR-006) - Navauldo 
+- ✅ Internal Chat and Send Reminders and (FR-006) - Navauldo 
 - ✅ Export Data (FR-009) - Adrienne Jobs
+- ✅ Manage Patient Contact Info (FR-004) - Jabari
+- ✅ View Appointment History (FR-007) - [Team Member]
+- ✅ Reschedule Appointments (FR-002) - [Team Member]
 
-### In Progress
 
-- 🔴 Manage Patient Contact Info (FR-004) - [Team Member]
-- 🔴 View Appointment History (FR-007) - [Team Member]
-- 🔴 Reschedule Appointments (FR-002) - [Team Member]
