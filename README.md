@@ -2,6 +2,8 @@
 
 # ClinicConnect - Medical Appointment System
 
+You have visit the website live at https://clinicconnect.infinityfreeapp.com/  or set it locally on your system.
+
 ## Setup Instructions
 
 ### Prerequisites
